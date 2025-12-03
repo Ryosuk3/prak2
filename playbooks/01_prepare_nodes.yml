@@ -2,7 +2,7 @@
   hosts: k8s_all
   become: true
   vars:
-    # Можно при необходимости использовать, если захочешь жёстко зафиксировать версию
+
     k8s_version: "1.28.5"
   tasks:
     - name: Disable swap (runtime)
