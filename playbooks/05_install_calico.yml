@@ -1,22 +1,22 @@
 - name: Install Calico network plugin
   hosts: k8s_master
   become: true
+  vars:
+    kubeconfig_path: "/root/.kube/config"
   tasks:
-    - name: Ensure admin kubeconfig exists
-      become: true
-      ansible.builtin.command: >
-        mkdir -p /home/admin/.kube
-      args:
-        creates: /home/admin/.kube
+    - name: Ensure root kubeconfig dir exists
+      file:
+        path: /root/.kube
+        state: directory
+        mode: '0700'
 
-    - name: Copy kubeconfig to admin home
-      become: true
-      ansible.builtin.copy:
+    - name: Copy kubeconfig for root
+      copy:
         src: /etc/kubernetes/admin.conf
-        dest: /home/admin/.kube/config
+        dest: "{{ kubeconfig_path }}"
         remote_src: true
-        owner: admin
-        group: admin
+        owner: root
+        group: root
         mode: '0600'
 
     
