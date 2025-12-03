@@ -1,0 +1,56 @@
+- name: Initialize Kubernetes cluster on master node
+  hosts: k8s_master
+  become: true
+  vars:
+    k8s_version: "1.28.5"
+    pod_network_cidr: "192.168.0.0/16"   # под Calico
+  tasks:
+    - name: Initialize cluster with kubeadm
+      ansible.builtin.command: >
+        kubeadm init
+        --pod-network-cidr {{ pod_network_cidr }}
+        --service-cidr 10.96.0.0/12
+        --kubernetes-version v{{ k8s_version }}
+        --apiserver-advertise-address {{ ansible_default_ipv4.address }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Create .kube directory for admin
+      ansible.builtin.file:
+        path: /home/admin/.kube
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+    - name: Copy admin.conf to admin kubeconfig
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/admin/.kube/config
+        owner: admin
+        group: admin
+        mode: "0600"
+        remote_src: true
+
+    - name: Generate join command
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: join_cmd
+
+    - name: Save join command to file
+      ansible.builtin.copy:
+        content: "{{ join_cmd.stdout }}"
+        dest: /tmp/k8s_join_command.txt
+        owner: admin
+        group: admin
+        mode: "0644"
+
+    - name: Show join command
+      ansible.builtin.debug:
+        msg: "{{ join_cmd.stdout }}"
+
+    - name: Wait for API server
+      ansible.builtin.wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: 6443
+        delay: 10
+        timeout: 180
