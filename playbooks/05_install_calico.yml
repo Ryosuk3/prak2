@@ -2,6 +2,24 @@
   hosts: k8s_master
   become: true
   tasks:
+    - name: Ensure admin kubeconfig exists
+      become: true
+      ansible.builtin.command: >
+        mkdir -p /home/admin/.kube
+      args:
+        creates: /home/admin/.kube
+
+    - name: Copy kubeconfig to admin home
+      become: true
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/admin/.kube/config
+        remote_src: true
+        owner: admin
+        group: admin
+        mode: '0600'
+
+    
     - name: Apply Calico manifest
       ansible.builtin.command: >
         kubectl apply -f
