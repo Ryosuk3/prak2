@@ -24,7 +24,7 @@
       delegate_to: k8s-master-01
       retries: 10
       delay: 10
-      until: node_status.rc == 0
+      until: "'NotReady' in node_check.stdout or 'Ready' in node_check.stdout"
 
     - name: Show join status
       ansible.builtin.debug:
