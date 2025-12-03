@@ -1,0 +1,45 @@
+- name: Verify Kubernetes cluster functionality
+  hosts: k8s_master
+  become: true
+  tasks:
+    - name: Create test namespace
+      ansible.builtin.shell: |
+        kubectl create namespace test --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: false
+
+    - name: Deploy test nginx application
+      ansible.builtin.command: kubectl create deployment nginx-test --image=nginx:alpine -n test
+      register: deploy_out
+      failed_when: deploy_out.rc not in [0,1]
+      changed_when: "'created' in deploy_out.stdout"
+
+    - name: Expose deployment as service
+      ansible.builtin.command: kubectl expose deployment nginx-test --port=80 --target-port=80 -n test
+      register: svc_out
+      failed_when: svc_out.rc not in [0,1]
+      changed_when: "'created' in svc_out.stdout"
+
+    - name: Wait for test pod to be Ready
+      ansible.builtin.command: kubectl wait --for=condition=ready pod -l app=nginx-test -n test --timeout=180s
+
+    - name: Get test pods
+      ansible.builtin.command: kubectl get pods -n test -o wide
+      register: test_pods
+
+    - name: Show test pods
+      ansible.builtin.debug:
+        msg: "{{ test_pods.stdout }}"
+
+    - name: Test service connectivity from inside cluster
+      ansible.builtin.command: >
+        kubectl run test-curl --image=curlimages/curl:latest -i --rm --restart=Never
+        -n test -- curl -s http://nginx-test.test:80
+      register: curl_test
+
+    - name: Show curl test result
+      ansible.builtin.debug:
+        msg: "Service test result: {{ curl_test.stdout }}"
+
+    - name: Cleanup test namespace
+      ansible.builtin.command: kubectl delete namespace test
+      changed_when: true
